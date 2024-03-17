@@ -1,14 +1,17 @@
 package com.seckill.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.rabbitmq.client.Channel;
 import com.seckill.bean.Order;
+import com.seckill.bean.SeckillGoods;
 import com.seckill.bean.SeckillOrder;
 import com.seckill.config.RabbitMqConfig;
 import com.seckill.mapper.SeckillOrderMapper;
 import com.seckill.service.OrderService;
+import com.seckill.service.SeckillGoodsService;
 import com.seckill.service.SeckillOrderService;
-import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -30,19 +33,24 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
     @Resource
     private OrderService orderService;
 
+    @Resource
+    private SeckillGoodsService seckillGoodsService;
     @RabbitListener(queues = RabbitMqConfig.ORDER_DEAD_QUEUE)
     public void receive(Message message, Channel channel) throws IOException {
         log.info("订单进入死信队列");
         String msg = new String(message.getBody());
-        Long orderId= Long.valueOf(msg);
+        Long orderId = Long.valueOf(msg);
         log.info("订单号：" + msg);
         LambdaQueryWrapper<Order> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Order::getOrderId,orderId);
+        queryWrapper.eq(Order::getOrderId, orderId);
         Order order = orderService.getOne(queryWrapper);
-        if (order != null && order.getStatus() == 0) {
+
+        if (order.getStatus() == 0) {
             order.setStatus(6);
             orderService.updateById(order);
-        //回退库存
+            //回退库存
+            seckillGoodsService.update(new LambdaUpdateWrapper<SeckillGoods>()
+                    .eq(SeckillGoods::getId,order.getGoodsId()).setSql("stock_count = stock_count+1"));
         }
         //应答
         channel.basicAck(message.getMessageProperties().getDeliveryTag(), false);

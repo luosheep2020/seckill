@@ -1,7 +1,7 @@
 package com.seckill.service;
 
-import com.seckill.bean.SeckillGoods;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.seckill.bean.SeckillGoods;
 
 /**
 * @author luosheep
@@ -9,5 +9,6 @@ import com.baomidou.mybatisplus.extension.service.IService;
 * @createDate 2024-03-14 22:02:58
 */
 public interface SeckillGoodsService extends IService<SeckillGoods> {
+
 
 }
