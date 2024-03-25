@@ -12,10 +12,13 @@ import com.seckill.service.OrderService;
 import com.seckill.service.SeckillGoodsService;
 import com.seckill.service.SeckillOrderService;
 import com.seckill.util.RedisUtils;
+import org.redisson.Redisson;
+import org.redisson.api.RLock;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
@@ -44,7 +47,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
     private RabbitTemplate rabbitTemplate;
     @Resource
     private RedisUtils redisUtils;
+
+    @Resource
+    private Redisson  redisson;
     public static final String SECKILL_GOODS_KEY="seckill:goods:";
+    public static final String ORDER_LOCK_KEY="order:lock:";
     @Override
     @Transactional
     public Response seckill(Long userId, Long goodsId) {
@@ -104,6 +111,58 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order>
         rabbitTemplate.convertAndSend(RabbitMqConfig.ORDER_EXCHANGE,RabbitMqConfig.ORDER_ROUTING,order.getOrderId());
         return Response.success("创建订单", null);
 
+    }
+
+    @Override
+    @Transactional
+    public Response payOrder(OrderPayDTO orderPayDTO) {
+        Long userId =  orderPayDTO.getUserId() ;
+        Long orderId= orderPayDTO.getOrderId();
+        int payWay= orderPayDTO.getPayWay();
+        Order order=this.getOne(new LambdaQueryWrapper<Order>().eq(Order::getOrderId,orderId));
+        Assert.isTrue(order!=null,"订单不存在");
+        Assert.isTrue(order.getStatus()==0,"订单不可支付，请检查订单状态");
+        RLock rLock=redisson.getLock(ORDER_LOCK_KEY+orderId);
+        boolean result=false;
+        try {
+            rLock.lock();
+            switch (payWay){
+                case 1:{
+                    result=VxPay(orderId);
+                    break;
+                }
+                case 2 :{
+                    result=AliPay(orderId);
+                    break;
+                }
+                default :{
+                    //其他支付
+                }
+            }
+        }finally {
+            if (rLock.isLocked()){
+                rLock.unlock();
+            }
+        }
+        if (result){
+            order.setStatus(1);
+            order.setPayDate(LocalDateTime.now());
+            this.updateById(order);
+            return Response.success("支付成功",order);
+        }
+        return Response.error("支付成功失败");
+    }
+
+    @Override
+    public boolean VxPay(Long oderId) {
+        //Todo 微信支付
+        return true;
+    }
+
+    @Override
+    public boolean AliPay(Long oderId) {
+        //Todo 阿里支付
+        return true;
     }
 }
 

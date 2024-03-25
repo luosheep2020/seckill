@@ -2,6 +2,7 @@ package com.seckill.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.seckill.bean.Order;
+import com.seckill.bean.OrderPayDTO;
 import com.seckill.bean.Response;
 
 /**
@@ -11,4 +12,7 @@ import com.seckill.bean.Response;
 */
 public interface OrderService extends IService<Order> {
     Response seckill(Long userId, Long goodsId);
+    Response payOrder(OrderPayDTO orderPayDTO);
+    boolean VxPay(Long oderId);
+    boolean AliPay(Long oderId);
 }

@@ -1,6 +1,10 @@
 package com.seckill.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -10,14 +14,14 @@ import org.springframework.context.annotation.Configuration;
 import java.util.HashMap;
 
 @Configuration
-public class RabbitMqConfig {
+public class RabbitMqConfig implements RabbitTemplate.ConfirmCallback, RabbitTemplate.ReturnsCallback {
     public static final String ORDER_QUEUE = "order_queue";
     public static final String ORDER_EXCHANGE = "order_exchange";
     public static final String ORDER_DEAD_EXCHANGE = "order_dead_exchange";
     public static final String ORDER_DEAD_QUEUE = "order_dead_queue";
     public static final String ORDER_ROUTING = "order_routing";
     public static final String ORDER_DEAD_ROUTING = "order_dead_routing";
-
+    private static final Logger logger = LoggerFactory.getLogger(RabbitMqConfig.class);
     @Bean
     public MessageConverter messageConverter(){
         Jackson2JsonMessageConverter jackson2JsonMessageConverter = new Jackson2JsonMessageConverter();
@@ -78,4 +82,17 @@ public class RabbitMqConfig {
     }
 
 
+    @Override
+    public void confirm(CorrelationData correlationData, boolean ack, String s) {
+        if (ack) {
+            logger.info("{}:消息成功到达交换器",correlationData.getId());
+        }else{
+            logger.error("{}:消息发送失败", correlationData.getId());
+        }
+    }
+
+    @Override
+    public void returnedMessage(ReturnedMessage returnedMessage) {
+        logger.error("{}:消息未成功路由到队列",returnedMessage.getMessage().getMessageProperties().getMessageId());
+    }
 }

@@ -4,7 +4,10 @@ import com.seckill.bean.Response;
 import com.seckill.service.OrderService;
 import org.redisson.Redisson;
 import org.redisson.api.RLock;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import java.util.Map;
@@ -19,7 +22,6 @@ public class SeckillController {
     public static final String LOCK_KEY = "SECKILL_STOCK_COUNT:";
 
     @PostMapping
-
     public Response doSeckill(@RequestBody Map<String, Long> param) {
         String key = LOCK_KEY + param.get("goodsId");
         RLock rLock = redisson.getLock(key);
